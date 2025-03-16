@@ -7,8 +7,20 @@
     "include": [
       "mod.ts",
       "src/**/*.ts",
+      "templates/*",
       "README.md",
       "LICENSE"
     ]
+  },
+  "lint": {
+    "include": ["src/", "tests/"],
+    "rules": {
+      "tags": ["recommended"],
+      "exclude": ["no-unused-vars"]
+    }
+  },
+  "fmt": {
+    "include": ["src/", "tests/"],
+    "lineWidth": 140
   }
 }

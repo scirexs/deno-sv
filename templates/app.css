@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-system: #000;
+  --color-canvas: #000;
+  --color-stroke: #000;
+  --color-active: #000;
+  --color-inactive: #000;
+  --color-invalid: #000;
+  --filter-brightness: 1;
+}
+
+@layer base {
+  :root {
+    font-family: "Noto Sans JP", "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+    color: var(--color-stroke);
+  }
+  body {
+    background-color: var(--color-canvas);
+  }
+}
