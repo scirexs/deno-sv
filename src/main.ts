@@ -1,4 +1,4 @@
-import * as p from "jsr:@std/path";
+import * as p from "jsr:@std/path@^1.0.8";
 import { Command } from "jsr:@cliffy/command@1.0.0-rc.7";
 import { Toggle } from "jsr:@cliffy/prompt@1.0.0-rc.7";
 import $ from "jsr:@david/dax@^0.42.0";
