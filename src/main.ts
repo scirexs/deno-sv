@@ -99,11 +99,11 @@ function copy(from: string, to: string, file: string) {
 }
 
 async function setupPackages(vitest?: boolean, tailwind?: boolean) {
-  await setupBasePackages(tailwind);
+  await setupBasePackages();
   if (vitest) await setupVitestPackages();
   if (tailwind) await setupTailwindPackages();
 }
-async function setupBasePackages(tailwind?: boolean) {
+async function setupBasePackages() {
   const PACKAGES = [
     "vite",
     "svelte",
@@ -113,12 +113,10 @@ async function setupBasePackages(tailwind?: boolean) {
     "@deno/vite-plugin",
     "@sveltejs/adapter-static",
   ];
-  if (tailwind) PACKAGES.shift(); // including in @tailwindcss/vite
   await addNpmPackage(PACKAGES);
 }
 async function setupVitestPackages() {
-  // vitest including in @testing-library/svelte
-  const PACKAGES = ["@testing-library/svelte", "jsdom", "@testing-library/jest-dom", "@testing-library/user-event"];
+  const PACKAGES = ["@testing-library/svelte", "vitest", "jsdom", "@testing-library/jest-dom", "@testing-library/user-event"];
   await addNpmPackage(PACKAGES);
 }
 async function setupTailwindPackages() {
@@ -138,6 +136,10 @@ function finalizeSetup(root: string, vitest?: boolean, tailwind?: boolean) {
   if (vitest) {
     fixTestSetup(p.join(root, "tests", "setup.ts"));
     fixUnitTest(p.join(root, "tests", "unit.test.ts"));
+  }
+  if (tailwind) {
+    switchTailwindViteLink(root);
+    removeDupVitePackage(root);
   }
 }
 function renameGitignore(root: string) {
@@ -166,6 +168,28 @@ function fixTestSetup(path: string) {
 }
 function fixUnitTest(path: string) {
   Deno.writeTextFileSync(path, Deno.readTextFileSync(path).replaceAll(`from "./`, `from "`));
+}
+async function switchTailwindViteLink(root: string) {
+  const dir = seekTailwindViteDir(root);
+  if (!dir) return;
+  const link = p.join(dir, "node_modules", "vite");
+  const tobe = (await $`readlink ${link}`.text()).replace("_1", "");
+  await $`ln -nfs ${tobe} ${link}`;
+}
+function seekTailwindViteDir(root: string): string {
+  const deno = p.join(root, "node_modules", ".deno");
+  for (const entry of Deno.readDirSync(deno)) {
+    if (entry.name.startsWith("@tailwindcss+vite")) return p.join(deno, entry.name);
+  }
+  return "";
+}
+function removeDupVitePackage(root: string) {
+  const dir = p.join(root, "node_modules", ".deno");
+  for (const entry of Deno.readDirSync(dir)) {
+    if (entry.name.startsWith("vite@") && entry.name.endsWith("_1") && entry.isDirectory) {
+      Deno.removeSync(p.join(dir, entry.name), { recursive: true });
+    }
+  }
 }
 
 function showError(e: unknown) {
