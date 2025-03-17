@@ -1,29 +1,29 @@
 import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig } from "vite";
 import deno from "@deno/vite-plugin";
-// import { svelteTesting } from "@testing-library/svelte/vite";
-///import tailwindcss from "@tailwindcss/vite";
+//Vimport { svelteTesting } from "@testing-library/svelte/vite";
+//Timport tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [
     deno(),
     sveltekit(),
-    ///tailwindcss()
+//T    tailwindcss(),
   ],
-  // test: {
-  //   workspace: [{
-  //     extends: "./vite.config.ts",
-  //     plugins: [svelteTesting()],
-  //     test: {
-  //       name: "client",
-  //       environment: "jsdom",
-  //       clearMocks: true,
-  //       include: [
-  //         "tests/**/*.svelte.test.ts",
-  //         "tests/**/*.test.ts",
-  //       ],
-  //       setupFiles: ["./tests/setup.ts"],
-  //     },
-  //   }],
-  // },
+//V  test: {
+//V    workspace: [{
+//V      extends: "./vite.config.ts",
+//V      plugins: [svelteTesting()],
+//V      test: {
+//V        name: "client",
+//V        environment: "jsdom",
+//V        clearMocks: true,
+//V        include: [
+//V          "tests/**/*.svelte.test.ts",
+//V          "tests/**/*.test.ts",
+//V        ],
+//V        setupFiles: ["./tests/setup.ts"],
+//V      },
+//V    }],
+//V  },
 });

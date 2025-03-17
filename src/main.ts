@@ -18,7 +18,7 @@ export default async function main() {
     await setupSvelte(source, root);
     if (options.vitest) await setupVitest(source, root);
     if (options.tailwind) await setupTailwind(source, root);
-    await finalizeSetup(root, options.vitest, options.tailwind);
+    finalizeSetup(root, options.vitest, options.tailwind);
   } catch (e) {
     showError(e);
   } finally {
@@ -115,29 +115,34 @@ function copy(from: string, to: string, file: string) {
   Deno.copyFileSync(p.join(from, file), p.join(to, file));
 }
 
-async function finalizeSetup(root: string, vitest?: boolean, tailwind?: boolean) {
+function finalizeSetup(root: string, vitest?: boolean, tailwind?: boolean) {
   const vite = p.join(root, "vite.config.ts");
   const svelte = p.join(root, "svelte.config.mjs");
 
   renameGitignore(root);
-  await adjustViteConfig(vite, vitest, tailwind);
-  await fixSvelteConfig(svelte);
+  adjustViteConfig(vite, vitest, tailwind);
+  fixSvelteConfig(svelte);
 }
 function renameGitignore(root: string) {
   const from = p.join(root, "gitignore.txt");
   const to = p.join(root, ".gitignore");
   Deno.renameSync(from, to);
 }
-async function adjustViteConfig(path: string, vitest?: boolean, tailwind?: boolean) {
-  const forVitest = vitest ? `sed -i 's:// ::' ${path}` : `sed -i '/^\\s*\\/\\/ / d' ${path}`;
-  const forTailwind = tailwind ? `sed -i 's:///::' ${path}` : `sed -i '/^\\s*\\/\\/\\// d' ${path}`;
-
-  await $`sed '/^import/ s:./::' ${path}`;
-  await $`${forVitest}`;
-  await $`${forTailwind}`;
+function adjustViteConfig(path: string, vitest?: boolean, tailwind?: boolean) {
+  let config = Deno.readTextFileSync(path);
+  config = toggleComments(config, "//V", vitest);
+  config = toggleComments(config, "//T", tailwind);
+  Deno.writeTextFileSync(path, config.replaceAll(`from "./`, `from "`));
 }
-async function fixSvelteConfig(path: string) {
-  await $`sed '/^import/ s:./::' ${path}`;
+function toggleComments(text: string, word: string, bool?: boolean): string {
+  if (bool) {
+    return text.replaceAll(word, "");
+  } else {
+    return text.split("\n").filter((x) => !x.startsWith(word)).join("\n");
+  }
+}
+function fixSvelteConfig(path: string) {
+  Deno.writeTextFileSync(path, Deno.readTextFileSync(path).replaceAll(`from "./`, `from "`));
 }
 
 function showError(e: unknown) {
