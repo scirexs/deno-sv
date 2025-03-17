@@ -18,8 +18,7 @@ export default async function main() {
     await setupSvelte(source, root);
     if (options.vitest) await setupVitest(source, root);
     if (options.tailwind) await setupTailwind(source, root);
-    replaceViteConfig(root, options.vitest, options.tailwind);
-    finalizeSetup(root);
+    await finalizeSetup(root, options.vitest, options.tailwind);
   } catch (e) {
     showError(e);
   } finally {
@@ -37,18 +36,33 @@ async function parseCommand() {
     .option("--no-confirm", "Skip interactions")
     .parse(Deno.args);
 }
+
 async function confirmProjectRoot(confirm?: boolean): Promise<string> {
   const cwd = p.resolve(".");
   if (!confirm) return cwd;
   if (!(await Toggle.prompt(`Setup the dir as svelte project: ${cwd}`))) return "";
   return cwd;
 }
+
 async function prepareSetup(tmp: string): Promise<string> {
   const pkg = p.join(tmp, "pkg.tgz");
   await new JSRPackage("scirexs", "sv").downloadPackage(pkg);
   await decompressTgz(pkg);
   return p.join(tmp, "package", "templates");
 }
+async function decompressTgz(path: string) {
+  const dir = p.dirname(path);
+  for await (
+    const entry of (await Deno.open(path)).readable
+      .pipeThrough(new DecompressionStream("gzip"))
+      .pipeThrough(new UntarStream())
+  ) {
+    const target = p.normalize(p.join(dir, entry.path));
+    Deno.mkdirSync(p.dirname(target), { recursive: true });
+    await entry.readable?.pipeTo((await Deno.create(target)).writable);
+  }
+}
+
 async function setupSvelte(source: string, root: string) {
   const ROOT_FILES = ["deno.json", "tsconfig.json", "vite.config.ts", "svelte.config.mjs", "gitignore.txt"];
   const SRC_FILES = ["app.html"];
@@ -88,40 +102,9 @@ async function setupTailwind(source: string, root: string) {
   copyFilesWithMakeDir(source, p.join(root, "src", "routes"), ROUTES_FILES);
   await addNpmPackage(PACKAGES);
 }
-async function decompressTgz(path: string) {
-  const dir = p.dirname(path);
-  for await (
-    const entry of (await Deno.open(path)).readable
-      .pipeThrough(new DecompressionStream("gzip"))
-      .pipeThrough(new UntarStream())
-  ) {
-    const target = p.normalize(p.join(dir, entry.path));
-    Deno.mkdirSync(p.dirname(target), { recursive: true });
-    await entry.readable?.pipeTo((await Deno.create(target)).writable);
-  }
-}
 async function addNpmPackage(packages: string[]) {
   for (const name of packages) {
     await $`deno add npm:${name}`;
-  }
-}
-async function replaceViteConfig(root: string, vitest?: boolean, tailwind?: boolean) {
-  const path = p.join(root, "vite.config.ts");
-  await replaceViteConfigForVitest(path, vitest);
-  await replaceViteConfigForTailwind(path, tailwind);
-}
-async function replaceViteConfigForVitest(path: string, vitest?: boolean) {
-  if (vitest) {
-    await $`sed -i 's:// ::' ${path}`;
-  } else {
-    await $`sed -i '/^\s*\/\/ / d' ${path}`;
-  }
-}
-async function replaceViteConfigForTailwind(path: string, tailwind?: boolean) {
-  if (tailwind) {
-    await $`sed -i 's:///::' ${path}`;
-  } else {
-    await $`sed -i '/^\s*\/\/\// d' ${path}`;
   }
 }
 function copyFilesWithMakeDir(from: string, to: string, files: string[]) {
@@ -131,11 +114,32 @@ function copyFilesWithMakeDir(from: string, to: string, files: string[]) {
 function copy(from: string, to: string, file: string) {
   Deno.copyFileSync(p.join(from, file), p.join(to, file));
 }
-function finalizeSetup(root: string) {
+
+async function finalizeSetup(root: string, vitest?: boolean, tailwind?: boolean) {
+  const vite = p.join(root, "vite.config.ts");
+  const svelte = p.join(root, "svelte.config.mjs");
+
+  renameGitignore(root);
+  await adjustViteConfig(vite, vitest, tailwind);
+  await fixSvelteConfig(svelte);
+}
+function renameGitignore(root: string) {
   const from = p.join(root, "gitignore.txt");
   const to = p.join(root, ".gitignore");
   Deno.renameSync(from, to);
 }
+async function adjustViteConfig(path: string, vitest?: boolean, tailwind?: boolean) {
+  const forVitest = vitest ? `sed -i 's:// ::' ${path}` : `sed -i '/^\\s*\\/\\/ / d' ${path}`;
+  const forTailwind = tailwind ? `sed -i 's:///::' ${path}` : `sed -i '/^\\s*\\/\\/\\// d' ${path}`;
+
+  await $`sed '/^import/ s:./::' ${path}`;
+  await $`${forVitest}`;
+  await $`${forTailwind}`;
+}
+async function fixSvelteConfig(path: string) {
+  await $`sed '/^import/ s:./::' ${path}`;
+}
+
 function showError(e: unknown) {
   if (e instanceof Error) {
     console.error(`error: ${e.message}`);
