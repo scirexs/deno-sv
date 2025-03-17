@@ -6,7 +6,7 @@ Setup svelte project by deno project structure in a simple way.
 
 ## Quick Start
 1. Move to project directory.
-2. Run command as below
+2. Run command as below.
 ```sh
 deno run jsr:@scirexs/sv
 ```

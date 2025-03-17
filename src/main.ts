@@ -19,6 +19,7 @@ export default async function main() {
     if (options.vitest) await setupVitest(source, root);
     if (options.tailwind) await setupTailwind(source, root);
     replaceViteConfig(root, options.vitest, options.tailwind);
+    finalizeSetup(root);
   } catch (e) {
     showError(e);
   } finally {
@@ -49,7 +50,7 @@ async function prepareSetup(tmp: string): Promise<string> {
   return p.join(tmp, "package", "templates");
 }
 async function setupSvelte(source: string, root: string) {
-  const ROOT_FILES = ["deno.json", "tsconfig.json", "vite.config.ts", "svelte.config.mjs", ".gitignore"];
+  const ROOT_FILES = ["deno.json", "tsconfig.json", "vite.config.ts", "svelte.config.mjs", "gitignore.txt"];
   const SRC_FILES = ["app.html"];
   const ROUTES_FILES = ["+page.svelte", "+layout.server.ts", "+error.svelte"];
   const STATIC_FILES = ["favicon.svg", "favicon.ico", "apple-touch-icon.png"];
@@ -129,6 +130,11 @@ function copyFilesWithMakeDir(from: string, to: string, files: string[]) {
 }
 function copy(from: string, to: string, file: string) {
   Deno.copyFileSync(p.join(from, file), p.join(to, file));
+}
+function finalizeSetup(root: string) {
+  const from = p.join(root, "gitignore.txt");
+  const to = p.join(root, ".gitignore");
+  Deno.renameSync(from, to);
 }
 function showError(e: unknown) {
   if (e instanceof Error) {
