@@ -15,9 +15,8 @@ export default async function main() {
   const tmp = Deno.makeTempDirSync();
   try {
     const source = await prepareSetup(tmp);
-    await setupSvelte(source, root);
-    if (options.vitest) await setupVitest(source, root);
-    if (options.tailwind) await setupTailwind(source, root);
+    setupTemplateFiles(source, root, options.vitest, options.tailwind);
+    await setupPackages(options.vitest, options.tailwind);
     finalizeSetup(root, options.vitest, options.tailwind);
   } catch (e) {
     showError(e);
@@ -63,49 +62,33 @@ async function decompressTgz(path: string) {
   }
 }
 
-async function setupSvelte(source: string, root: string) {
-  const ROOT_FILES = ["deno.json", "tsconfig.json", "vite.config.ts", "svelte.config.mjs", "gitignore.txt"];
-  const SRC_FILES = ["app.html"];
-  const ROUTES_FILES = ["+page.svelte", "+layout.server.ts", "+error.svelte"];
-  const STATIC_FILES = ["favicon.svg", "favicon.ico", "apple-touch-icon.png"];
-  const PACKAGES = [
-    "vite",
-    "svelte",
-    "svelte-check",
-    "@sveltejs/kit",
-    "@sveltejs/vite-plugin-svelte",
-    "@deno/vite-plugin",
-    "@sveltejs/adapter-static",
-  ];
+function setupTemplateFiles(source: string, root: string, vitest?: boolean, tailwind?: boolean) {
+  setupBaseFiles(source, root);
+  if (vitest) setupVitestFiles(source, root);
+  if (tailwind) setupTailwindFiles(source, root);
+}
+function setupBaseFiles(source: string, root: string) {
+  const BASE_ROOT = ["deno.json", "tsconfig.json", "vite.config.ts", "svelte.config.mjs", "gitignore.txt"];
+  const BASE_SRC = ["app.html"];
+  const BASE_ROUTES = ["+page.svelte", "+layout.server.ts", "+error.svelte"];
+  const BASE_STATIC = ["favicon.svg", "favicon.ico", "apple-touch-icon.png"];
 
   const src = p.join(root, "src");
   Deno.mkdirSync(p.join(src, "lib"), { recursive: true });
-  copyFilesWithMakeDir(source, root, ROOT_FILES);
-  copyFilesWithMakeDir(source, src, SRC_FILES);
-  copyFilesWithMakeDir(source, p.join(src, "routes"), ROUTES_FILES);
-  copyFilesWithMakeDir(source, p.join(root, "static"), STATIC_FILES);
-  await addNpmPackage(PACKAGES);
+  copyFilesWithMakeDir(source, root, BASE_ROOT);
+  copyFilesWithMakeDir(source, src, BASE_SRC);
+  copyFilesWithMakeDir(source, p.join(src, "routes"), BASE_ROUTES);
+  copyFilesWithMakeDir(source, p.join(root, "static"), BASE_STATIC);
 }
-async function setupVitest(source: string, root: string) {
-  const TESTS_FILES = ["setup.ts", "unit.test.ts"];
-  const PACKAGES = ["vitest", "jsdom", "@testing-library/jest-dom", "@testing-library/svelte", "@testing-library/user-event"];
-
-  copyFilesWithMakeDir(source, p.join(root, "tests"), TESTS_FILES);
-  await addNpmPackage(PACKAGES);
+function setupVitestFiles(source: string, root: string) {
+  const VITEST_TESTS = ["setup.ts", "unit.test.ts"];
+  copyFilesWithMakeDir(source, p.join(root, "tests"), VITEST_TESTS);
 }
-async function setupTailwind(source: string, root: string) {
-  const SRC_FILES = ["app.css"];
-  const ROUTES_FILES = ["+layout.svelte"];
-  const PACKAGES = ["tailwindcss", "@tailwindcss/vite"];
-
-  copyFilesWithMakeDir(source, p.join(root, "src"), SRC_FILES);
-  copyFilesWithMakeDir(source, p.join(root, "src", "routes"), ROUTES_FILES);
-  await addNpmPackage(PACKAGES);
-}
-async function addNpmPackage(packages: string[]) {
-  for (const name of packages) {
-    await $`deno add npm:${name}`;
-  }
+function setupTailwindFiles(source: string, root: string) {
+  const TAIL_SRC = ["app.css"];
+  const TAIL_ROUTES = ["+layout.svelte"];
+  copyFilesWithMakeDir(source, p.join(root, "src"), TAIL_SRC);
+  copyFilesWithMakeDir(source, p.join(root, "src", "routes"), TAIL_ROUTES);
 }
 function copyFilesWithMakeDir(from: string, to: string, files: string[]) {
   Deno.mkdirSync(to, { recursive: true });
@@ -115,13 +98,47 @@ function copy(from: string, to: string, file: string) {
   Deno.copyFileSync(p.join(from, file), p.join(to, file));
 }
 
-function finalizeSetup(root: string, vitest?: boolean, tailwind?: boolean) {
-  const vite = p.join(root, "vite.config.ts");
-  const svelte = p.join(root, "svelte.config.mjs");
+async function setupPackages(vitest?: boolean, tailwind?: boolean) {
+  await setupBasePackages(tailwind);
+  if (vitest) await setupVitestPackages();
+  if (tailwind) await setupTailwindPackages();
+}
+async function setupBasePackages(tailwind?: boolean) {
+  const PACKAGES = [
+    "vite",
+    "svelte",
+    "svelte-check",
+    "@sveltejs/kit",
+    "@sveltejs/vite-plugin-svelte",
+    "@deno/vite-plugin",
+    "@sveltejs/adapter-static",
+  ];
+  if (tailwind) PACKAGES.shift(); // including in @tailwindcss/vite
+  await addNpmPackage(PACKAGES);
+}
+async function setupVitestPackages() {
+  // vitest including in @testing-library/svelte
+  const PACKAGES = ["@testing-library/svelte", "jsdom", "@testing-library/jest-dom", "@testing-library/user-event"];
+  await addNpmPackage(PACKAGES);
+}
+async function setupTailwindPackages() {
+  const PACKAGES = ["tailwindcss", "@tailwindcss/vite"];
+  await addNpmPackage(PACKAGES);
+}
+async function addNpmPackage(packages: string[]) {
+  for (const name of packages) {
+    await $`deno add npm:${name}`;
+  }
+}
 
+function finalizeSetup(root: string, vitest?: boolean, tailwind?: boolean) {
   renameGitignore(root);
-  adjustViteConfig(vite, vitest, tailwind);
-  fixSvelteConfig(svelte);
+  adjustViteConfig(p.join(root, "vite.config.ts"), vitest, tailwind);
+  fixSvelteConfig(p.join(root, "svelte.config.mjs"));
+  if (vitest) {
+    fixTestSetup(p.join(root, "tests", "setup.ts"));
+    fixUnitTest(p.join(root, "tests", "unit.test.ts"));
+  }
 }
 function renameGitignore(root: string) {
   const from = p.join(root, "gitignore.txt");
@@ -142,6 +159,12 @@ function toggleComments(text: string, word: string, bool?: boolean): string {
   }
 }
 function fixSvelteConfig(path: string) {
+  Deno.writeTextFileSync(path, Deno.readTextFileSync(path).replaceAll(`from "./`, `from "`));
+}
+function fixTestSetup(path: string) {
+  Deno.writeTextFileSync(path, Deno.readTextFileSync(path).replaceAll(`from "./`, `from "`).replaceAll(`import "./`, `import "`));
+}
+function fixUnitTest(path: string) {
   Deno.writeTextFileSync(path, Deno.readTextFileSync(path).replaceAll(`from "./`, `from "`));
 }
 
