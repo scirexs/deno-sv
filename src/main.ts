@@ -68,7 +68,7 @@ function setupTemplateFiles(source: string, root: string, vitest?: boolean, tail
   if (tailwind) setupTailwindFiles(source, root);
 }
 function setupBaseFiles(source: string, root: string) {
-  const BASE_ROOT = ["deno.json", "tsconfig.json", "vite.config.ts", "svelte.config.mjs", "gitignore.txt"];
+  const BASE_ROOT = ["deno.json", "tsconfig.json", "vite.config.ts", "svelte.config.mjs"];
   const BASE_SRC = ["app.html"];
   const BASE_ROUTES = ["+page.svelte", "+layout.server.ts", "+error.svelte"];
   const BASE_STATIC = ["favicon.svg", "favicon.ico", "apple-touch-icon.png"];
@@ -130,7 +130,6 @@ async function addNpmPackage(packages: string[]) {
 }
 
 function finalizeSetup(root: string, vitest?: boolean, tailwind?: boolean) {
-  renameGitignore(root);
   adjustViteConfig(p.join(root, "vite.config.ts"), vitest, tailwind);
   fixSvelteConfig(p.join(root, "svelte.config.mjs"));
   if (vitest) {
@@ -141,11 +140,6 @@ function finalizeSetup(root: string, vitest?: boolean, tailwind?: boolean) {
     switchTailwindViteLink(root);
     removeDupVitePackage(root);
   }
-}
-function renameGitignore(root: string) {
-  const from = p.join(root, "gitignore.txt");
-  const to = p.join(root, ".gitignore");
-  Deno.renameSync(from, to);
 }
 function adjustViteConfig(path: string, vitest?: boolean, tailwind?: boolean) {
   let config = Deno.readTextFileSync(path);
